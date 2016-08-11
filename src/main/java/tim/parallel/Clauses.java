@@ -1,6 +1,8 @@
 package tim.parallel;
 
 
+import java.util.Arrays;
+
 /**
  * This class represents an array of clauses (clause is represented as int[])
  */
@@ -36,7 +38,7 @@ public class Clauses {
 
         // loop and add the clauses
         for (int i = 0; i < size; i++) {
-            result.append(clauses[i]);
+            result.append(Arrays.toString(clauses[i]));
             result.append("\n");
         }
 

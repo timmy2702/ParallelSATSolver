@@ -4,6 +4,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.status.StatusLogger;
 import tim.Timer;
 
 import java.io.BufferedReader;
@@ -25,6 +26,8 @@ public class Solver {
     /* Class Constructors */
     public Solver(String file, Level level) {
         this.file = file;
+
+        // set level for the logger & turn off status logger warnings
         logger = LogManager.getLogger(Solver.class.getName());
         ((LoggerContext) LogManager.getContext()).getConfiguration().getLoggerConfig(logger.getName()).setLevel(level);
     }
@@ -55,17 +58,22 @@ public class Solver {
         String line = buffer.readLine();
         while (line != null) {
             // ignore all the lines starting with c
-            if (!line.startsWith("c ")) {
+            if (!line.startsWith("c")) {
                 // split the line
                 String[] split = line.split(" ");
 
                 // handle line with 'p' (assume all the files have 'p' for problem)
                 if (split[0].equals("p")) {
-                    // init the buckets with the number of variables
+                    // get variables and clauses
                     int variables = Integer.parseInt(split[2]);
                     int clauses = Integer.parseInt(split[3]);
-                    buckets = new Bucket[variables];
                     logger.warn(String.format("Variables = %d, Clauses = %d", variables, clauses));
+
+                    // init the buckets
+                    buckets = new Bucket[variables];
+                    for (int i = 0; i < buckets.length; i++) {
+                        buckets[i] = new Bucket();
+                    }
                 }
                 else {
                     // create a new clause (assume 0 at the end)
