@@ -4,12 +4,17 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.status.StatusLogger;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import tim.Timer;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 /**
@@ -29,8 +34,12 @@ public class Solver {
 
         // set level for the logger & turn off status logger warnings
         logger = LogManager.getLogger(Solver.class.getName());
-        ((LoggerContext) LogManager.getContext()).getConfiguration().getLoggerConfig(logger.getName()).setLevel(level);
-    }
+        LoggerContext context = (LoggerContext) LogManager.getContext(false);
+        Configuration config = context.getConfiguration();
+        LoggerConfig loggerConfig = config.getLoggerConfig(logger.getName());
+        loggerConfig.setLevel(level);
+        context.updateLoggers();
+     }
 
 
     /* Public Methods */
@@ -43,7 +52,16 @@ public class Solver {
         Timer timerInitBuckets = new Timer("Init Buckets");
         initBuckets();
         timerInitBuckets.result();
-        printBuckets();
+
+        // create a thread pool
+        int cores = Runtime.getRuntime().availableProcessors();
+        ExecutorService threadPool = Executors.newFixedThreadPool(cores);
+        CompletionService<Boolean> completionService = new ExecutorCompletionService<>(threadPool);
+
+        // loop through each bucket and do resolution
+        for (int i = 0; i < buckets.length; i++) {
+
+        }
     }
 
 

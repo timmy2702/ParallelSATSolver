@@ -5,3 +5,7 @@ build
 gradle
 gradlew
 gradlew.bat
+
+# Ignore the scripts and inputs folder
+*.sh
+inputs
