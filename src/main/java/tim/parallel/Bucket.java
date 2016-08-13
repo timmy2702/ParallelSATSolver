@@ -17,6 +17,9 @@ public class Bucket {
     private Clauses negCurrent;
     private int posSize;
     private int negSize;
+    private int posClauseMaxSize;
+    private int negClauseMaxSize;
+    private int key;
 
 
     /* Class Constructors */
@@ -27,6 +30,9 @@ public class Bucket {
         negCurrent = new Clauses();
         posSize = 0;
         negSize = 0;
+        posClauseMaxSize = 0;
+        negClauseMaxSize = 0;
+        key = 0;
 
         // add current to the list clauses
         posClauses.add(posCurrent);
@@ -44,6 +50,10 @@ public class Bucket {
         result.append(posSize);
         result.append(", negSize = ");
         result.append(negSize);
+        result.append(", posClauseMaxSize = ");
+        result.append(posClauseMaxSize);
+        result.append(", negClauseMaxSize = ");
+        result.append(negClauseMaxSize);
         result.append("\n");
 
         // loop and add posClauses
@@ -85,6 +95,12 @@ public class Bucket {
 
                 // increase the size
                 posSize++;
+
+                // get the max size
+                posClauseMaxSize = (posClauseMaxSize < clause.length) ? clause.length : posClauseMaxSize;
+
+                // get key (assume clause is sorted)
+                key = clause[0];
                 break;
 
             case NEGATIVE:
@@ -97,6 +113,12 @@ public class Bucket {
 
                 // increase the size
                 negSize++;
+
+                // get the max size
+                negClauseMaxSize = (negClauseMaxSize < clause.length) ? clause.length : negClauseMaxSize;
+
+                // get key (assume clause is sorted)
+                key = -clause[0];
                 break;
         }
     }
@@ -110,6 +132,12 @@ public class Bucket {
         // increase the sizes
         posSize += bucket.getPosSize();
         negSize += bucket.getNegSize();
+
+        // get clause max sizes
+        posClauseMaxSize = (posClauseMaxSize < bucket.getPosClauseMaxSize()) ?
+                bucket.getPosClauseMaxSize() : posClauseMaxSize;
+        negClauseMaxSize = (negClauseMaxSize < bucket.getNegClauseMaxSize()) ?
+                bucket.getNegClauseMaxSize() : negClauseMaxSize;
 
         // fill out the empty items for posCurrent
         boolean isAddedAllowed;
@@ -307,5 +335,20 @@ public class Bucket {
 
     public int getNegSize() {
         return negSize;
+    }
+
+
+    public int getPosClauseMaxSize() {
+        return posClauseMaxSize;
+    }
+
+
+    public int getNegClauseMaxSize() {
+        return negClauseMaxSize;
+    }
+
+
+    public int getKey() {
+        return key;
     }
 }

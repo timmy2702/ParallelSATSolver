@@ -6,15 +6,14 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
+import tim.QuickSort;
 import tim.Timer;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Iterator;
+import java.util.concurrent.*;
 
 
 /**
@@ -55,13 +54,78 @@ public class Solver {
 
         // create a thread pool
         int cores = Runtime.getRuntime().availableProcessors();
+        logger.warn(String.format("Available Cores = %d", cores));
         ExecutorService threadPool = Executors.newFixedThreadPool(cores);
         CompletionService<Boolean> completionService = new ExecutorCompletionService<>(threadPool);
 
-        // loop through each bucket and do resolution
-        for (int i = 0; i < buckets.length; i++) {
+        // print original buckets
+        printBuckets();
 
+        // loop through each bucket and do resolution
+        Bucket bucket;
+        WorkerTask worker;
+        Iterator<int[]> iterator;
+        Future<Boolean> result;
+        Boolean isUnsatisfiable;
+        int[][][] negData = new int[cores][][];
+        int i, j, negCutOff, negCount, negMod, maxResolutionSize, receivedResults;
+        for (i = 0; i < buckets.length; i++) {
+            bucket = buckets[i];
+
+            // print the bucket
+            logger.warn(String.format("Starting Iteration %d", i));
+            logger.info(String.format("Bucket %d\n%s", i, bucket));
+
+            // get iterator and necessary data
+            iterator = bucket.getIterator(bucket.getNegSize(), Clauses.ClauseType.NEGATIVE);
+            negCutOff = bucket.getNegSize() / cores;
+            negMod = bucket.getNegSize() % cores;
+            negCount = 0;
+            maxResolutionSize = bucket.getPosClauseMaxSize() + bucket.getNegClauseMaxSize();
+
+            // init the negData for this bucket
+            for (j = 0; j < negData.length; j++) {
+                negData[j] = (j < negMod) ? (new int[negCutOff + negMod][]) : (new int[negCutOff][]);
+            }
+
+            // loop through the negIterator to assign negData
+            while (iterator.hasNext()) {
+                // assign one each horizontally
+                negData[negCount % cores][negCount / cores] = iterator.next();
+            }
+
+            // submit tasks to thread pool
+            logger.warn(String.format("Submitting tasks Iteration %d", i));
+            for (j = 0; j < cores; j++) {
+                iterator = bucket.getIterator(bucket.getPosSize(), Clauses.ClauseType.POSITIVE);
+                worker = new WorkerTask(maxResolutionSize, negData[j], iterator, buckets);
+                completionService.submit(worker);
+            }
+
+            // getting the results
+            logger.warn(String.format("Waiting for results Iteration %d", i));
+            receivedResults = 0;
+            while (receivedResults < cores) {
+                // wait until a result is collected
+                result = completionService.take();
+
+                // get the result
+                isUnsatisfiable = result.get();
+                if (isUnsatisfiable) {
+                    logger.error("UNSATISFIABLE");
+                    threadPool.shutdownNow();
+                    return;
+                }
+                else {
+                    receivedResults++;
+                    logger.info(String.format("receivedResults = %d", receivedResults));
+                }
+            }
         }
+
+        // return result in the end and shutdown
+        logger.error("SATISFIABLE");
+        threadPool.shutdownNow();
     }
 
 
@@ -70,7 +134,11 @@ public class Solver {
      * This method will parse through the file and initialize the buckets
      */
     private void initBuckets() throws IOException {
+        // init reusable variables
         BufferedReader buffer = new BufferedReader(new FileReader(file));
+        int i, variables, clauses, key, literal, duplicateCount, clauseIndex;
+        boolean isPosKey, isTrueClause;
+        int[] clause, tmp;
 
         // read each line in the file
         String line = buffer.readLine();
@@ -83,23 +151,22 @@ public class Solver {
                 // handle line with 'p' (assume all the files have 'p' for problem)
                 if (split[0].equals("p")) {
                     // get variables and clauses
-                    int variables = Integer.parseInt(split[2]);
-                    int clauses = Integer.parseInt(split[3]);
+                    variables = Integer.parseInt(split[2]);
+                    clauses = Integer.parseInt(split[3]);
                     logger.warn(String.format("Variables = %d, Clauses = %d", variables, clauses));
 
                     // init the buckets
                     buckets = new Bucket[variables];
-                    for (int i = 0; i < buckets.length; i++) {
+                    for (i = 0; i < buckets.length; i++) {
                         buckets[i] = new Bucket();
                     }
                 }
                 else {
                     // create a new clause (assume 0 at the end)
-                    int[] clause = new int[split.length - 1];
-                    int key = 0;
-                    int literal;
-                    boolean isPosKey = false;
-                    for (int i = 0; i < clause.length; i++) {
+                    clause = new int[split.length - 1];
+                    key = 0;
+                    isPosKey = false;
+                    for (i = 0; i < clause.length; i++) {
                         literal = Integer.parseInt(split[i]);
                         clause[i] = literal;
 
@@ -121,8 +188,44 @@ public class Solver {
                         }
                     }
 
-                    // add the clause into the right bucket
-                    buckets[key - 1].add(clause, isPosKey ? Clauses.ClauseType.POSITIVE : Clauses.ClauseType.NEGATIVE);
+                    // sort the clause
+                    QuickSort.sort(clause);
+
+                    // loop through the sorted clause to check duplicates
+                    duplicateCount = 0;
+                    isTrueClause = false;
+                    for (i = 0; i < (clause.length - 1); i++) {
+                        // look ahead one item
+                        if (clause[i+1] == clause[i]) {
+                            duplicateCount++;
+                        }
+                        else if (clause[i+1] == -clause[i]) {
+                            // don't handle true clauses
+                            isTrueClause = true;
+                            break;
+                        }
+                    }
+
+                    // don't add if it's true clause
+                    if (!isTrueClause) {
+                        // get rid of duplicates
+                        if (duplicateCount > 0) {
+                            tmp = clause;
+                            clause = new int[tmp.length - duplicateCount];
+                            clauseIndex = 0;
+                            for (i = 0; i < (tmp.length - 1); i++) {
+                                clause[clauseIndex] = tmp[i];
+
+                                // look ahead one item
+                                if (tmp[i+1] != tmp[i]) {
+                                    clause[++clauseIndex] = tmp[i+1];
+                                }
+                            }
+                        }
+
+                        // add the clause into the right bucket
+                        buckets[key - 1].add(clause, isPosKey ? Clauses.ClauseType.POSITIVE : Clauses.ClauseType.NEGATIVE);
+                    }
                 }
             }
 
