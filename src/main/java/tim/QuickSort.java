@@ -1,6 +1,8 @@
 package tim;
 
 
+import java.util.Arrays;
+
 /**
  * This class is my implementation for quick sort in-place (only support int[] for now)
  * Note: it will sort the array into this:
@@ -33,7 +35,7 @@ public class QuickSort {
      */
     private static void sort(int[] data, int low, int high) {
         // base case
-        if ((low == high) || (low == high - 1) || (low > high)) {
+        if ((low == high) || (low > high)) {
             return;
         }
 

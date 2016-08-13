@@ -35,7 +35,7 @@ public class WorkerTask implements Callable<Boolean> {
         // init necessary variables
         int[] resolutionTmp = new int[maxResolutionSize];
         int[] posClause, negClause, resolution;
-        int i, j, posIndex, negIndex, resolutionLength;
+        int i, j, posIndex, negIndex, posItem, negItem, resolutionLength;
         boolean isTrueClause;
 
         // do resolution on this bucket
@@ -80,32 +80,35 @@ public class WorkerTask implements Callable<Boolean> {
                     posIndex = 1;
                     negIndex = 1;
                     isTrueClause = false;
-                    while ((posIndex < posClause.length) && (negIndex < negClause.length)) {
+                    // debug
+                    System.out.format("posClause = %s -- negClause = %s\n",
+                            Arrays.toString(posClause), Arrays.toString(negClause));
+                    while ((posIndex < posClause.length) || (negIndex < negClause.length)) {
+                        // debug
+                        System.out.format("resolutionTmp = %s -- posIndex = %d -- negIndex = %d\n",
+                                Arrays.toString(resolutionTmp), posIndex, negIndex);
+
                         // handle true clauses
                         if (posClause[posIndex] == -negClause[negIndex]) {
                             isTrueClause = true;
                             break;
                         }
 
+                        // convert items to positive
+                        posItem = (posClause[posIndex] < 0) ? -posClause[posIndex] : posClause[posIndex];
+                        negItem = (negClause[negIndex] < 0) ? -negClause[negIndex] : negClause[negIndex];
+
                         // add small items first
-                        if (posClause[posIndex] <= negClause[negIndex]) {
+                        if (posItem <= negItem) {
                             resolutionTmp[resolutionLength++] = posClause[posIndex++];
                         }
-                        else if (posClause[posIndex] > negClause[negIndex]) {
+                        else if (posItem > negItem) {
                             resolutionTmp[resolutionLength++] = negClause[negIndex++];
                         }
                     }
 
                     // don't add true clauses
                     if (!isTrueClause) {
-                        // add left over items
-                        for (j = posIndex; j < posClause.length; j++) {
-                            resolutionTmp[resolutionLength++] = posClause[j];
-                        }
-                        for (j = negIndex; j < negClause.length; j++) {
-                            resolutionTmp[resolutionLength++] = negClause[j];
-                        }
-
                         // create resolution
                         resolution = new int[resolutionLength];
                         for (j = 0; j < resolutionLength; j++) {
@@ -132,6 +135,9 @@ public class WorkerTask implements Callable<Boolean> {
      * @param clause given the clause (must be sorted)
      */
     private void addToBucket(int[] clause) {
+        // debug
+        System.out.format("Add to bucket = %s", Arrays.toString(clause));
+
         int key = (clause[0] < 0) ? -clause[0] : clause[0];
 
         // handle when key doesn't exist

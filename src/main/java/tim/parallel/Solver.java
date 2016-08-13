@@ -12,6 +12,7 @@ import tim.Timer;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.*;
 
@@ -73,8 +74,8 @@ public class Solver {
             bucket = buckets[i];
 
             // print the bucket
-            logger.warn(String.format("Starting Iteration %d", i));
-            logger.info(String.format("Bucket %d\n%s", i, bucket));
+            logger.warn(String.format("Starting Iteration %d", i + 1));
+            logger.info(String.format("Bucket %d\n%s", i + 1, bucket));
 
             // get iterator and necessary data
             iterator = bucket.getIterator(bucket.getNegSize(), Clauses.ClauseType.NEGATIVE);
@@ -85,17 +86,22 @@ public class Solver {
 
             // init the negData for this bucket
             for (j = 0; j < negData.length; j++) {
-                negData[j] = (j < negMod) ? (new int[negCutOff + negMod][]) : (new int[negCutOff][]);
+                negData[j] = (j < negMod) ? (new int[negCutOff + 1][]) : (new int[negCutOff][]);
             }
 
             // loop through the negIterator to assign negData
             while (iterator.hasNext()) {
                 // assign one each horizontally
                 negData[negCount % cores][negCount / cores] = iterator.next();
+                negCount++;
             }
 
+            // print out negData
+            logger.info(String.format("Printing negData -- negCutOff = %d -- negMod = %d", negCutOff, negMod));
+            printArray(negData);
+
             // submit tasks to thread pool
-            logger.warn(String.format("Submitting tasks Iteration %d", i));
+            logger.warn(String.format("Submitting tasks Iteration %d", i + 1));
             for (j = 0; j < cores; j++) {
                 iterator = bucket.getIterator(bucket.getPosSize(), Clauses.ClauseType.POSITIVE);
                 worker = new WorkerTask(maxResolutionSize, negData[j], iterator, buckets);
@@ -103,7 +109,7 @@ public class Solver {
             }
 
             // getting the results
-            logger.warn(String.format("Waiting for results Iteration %d", i));
+            logger.warn(String.format("Waiting for results Iteration %d", i + 1));
             receivedResults = 0;
             while (receivedResults < cores) {
                 // wait until a result is collected
@@ -241,6 +247,22 @@ public class Solver {
     private void printBuckets() {
         for (int i = 0; i < buckets.length; i++) {
             logger.info(String.format("Bucket %d\n%s", i + 1, buckets[i]));
+        }
+    }
+
+
+    /**
+     * This method will print out the array (for debug purposes)
+     * @param data given the array data
+     */
+    private void printArray(int[][][] data) {
+        int[][] subData;
+        for (int i = 0; i < data.length; i++) {
+            subData = data[i];
+            logger.info(String.format("Array %d -- size = %d", i + 1, subData.length));
+            for (int[] item : subData) {
+                logger.info(Arrays.toString(item));
+            }
         }
     }
 
