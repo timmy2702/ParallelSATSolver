@@ -1,4 +1,5 @@
 # Unnecessary IntelliJ and Gradle files
+.gitignore
 .idea
 .gradle
 build
@@ -9,3 +10,4 @@ gradlew.bat
 # Ignore the scripts and inputs folder
 *.sh
 inputs
+/bin/
