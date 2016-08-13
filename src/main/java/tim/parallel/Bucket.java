@@ -120,6 +120,7 @@ public class Bucket {
 
                 // get key (assume clause is sorted)
                 key = -clause[0];
+                assert (key >=0);
                 break;
         }
     }
@@ -350,6 +351,7 @@ public class Bucket {
 
 
     public int getKey() {
+    	assert (key>=0);
         return key;
     }
 }

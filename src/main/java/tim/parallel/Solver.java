@@ -196,6 +196,9 @@ public class Solver {
 
                     // sort the clause
                     QuickSort.sort(clause);
+                   assert (Clauses.inOrder(clause));
+                    // a simple but correct intsort
+                    //QuickSort.intsort(clause);
 
                     // loop through the sorted clause to check duplicates
                     duplicateCount = 0;
