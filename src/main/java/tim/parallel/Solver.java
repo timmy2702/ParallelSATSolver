@@ -74,7 +74,7 @@ public class Solver {
             bucket = buckets[i];
 
             // print the bucket
-            logger.warn(String.format("Starting Iteration %d", i + 1));
+            logger.warn(String.format("Starting Bucket %d -- Iteration %d", i + 1, i + 1));
             logger.info(String.format("Bucket %d\n%s", i + 1, bucket));
 
             // get iterator and necessary data
@@ -101,7 +101,7 @@ public class Solver {
             printArray(negData);
 
             // submit tasks to thread pool
-            logger.warn(String.format("Submitting tasks Iteration %d", i + 1));
+            logger.warn(String.format("Submitting tasks -- Iteration %d", i + 1));
             for (j = 0; j < cores; j++) {
                 iterator = bucket.getIterator(bucket.getPosSize(), Clauses.ClauseType.POSITIVE);
                 worker = new WorkerTask(maxResolutionSize, negData[j], iterator, buckets);
@@ -109,7 +109,7 @@ public class Solver {
             }
 
             // getting the results
-            logger.warn(String.format("Waiting for results Iteration %d", i + 1));
+            logger.warn(String.format("Waiting for results -- Iteration %d", i + 1));
             receivedResults = 0;
             while (receivedResults < cores) {
                 // wait until a result is collected
@@ -127,6 +127,9 @@ public class Solver {
                     logger.info(String.format("receivedResults = %d", receivedResults));
                 }
             }
+
+            // deallocate the bucket
+            buckets[i] = null;
         }
 
         // return result in the end and shutdown
@@ -196,9 +199,7 @@ public class Solver {
 
                     // sort the clause
                     QuickSort.sort(clause);
-                   assert (Clauses.inOrder(clause));
-                    // a simple but correct intsort
-                    //QuickSort.intsort(clause);
+                    assert (Clauses.inOrder(clause));
 
                     // loop through the sorted clause to check duplicates
                     duplicateCount = 0;

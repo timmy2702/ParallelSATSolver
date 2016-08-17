@@ -84,18 +84,18 @@ public class Clauses {
             throw new IndexOutOfBoundsException();
         }
 
-        return clauses[size--];
+        return clauses[--size];
     }
-    
+
+
     /**
      * Khanh added for testing
-     * @param clause
+     * @param clause given the clause array
      * @return whether this clause is in correct order or not
      */
-    
     public static boolean inOrder(int[] clause) {
-    	for (int i=0; i < clause.length-2; ++i) {
-    		if (Math.abs(clause[i]) >Math.abs(clause[i+1]))
+    	for (int i = 0; i < clause.length - 2; ++i) {
+    		if (Math.abs(clause[i]) > Math.abs(clause[i+1]))
     			return false;
     	}
     	return true;

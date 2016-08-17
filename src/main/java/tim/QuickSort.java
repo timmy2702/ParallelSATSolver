@@ -1,8 +1,6 @@
 package tim;
 
 
-import java.util.Arrays;
-
 /**
  * This class is my implementation for quick sort in-place (only support int[] for now)
  * Note: it will sort the array into this:
@@ -10,47 +8,6 @@ import java.util.Arrays;
  */
 public class QuickSort {
 
-/* Khanh added for quick testing */
-interface IntComparator {
-	int compare(int a, int b);
-}
-
-private static void sortintarray(int[] data, IntComparator comparator) {
-	for(int i = 0; i < data.length-1; i++){
-		for(int j = i+1; j <data.length
-				&& comparator.compare(data[j - 1], data[j]) > 0; j++){
-			int b = j - 1;
-			int t = data[j];
-			data[j] = data[b];
-			data[b] = t;
-		}
-	}
-}
-		
-public static void intsort(int[] data) {
-	sortintarray(data, new IntComparator() {
-
-		@Override
-		public int compare(int a, int b) {
-			if (a >= 0 ) {
-				if (b >= 0) {
-					return a - b;
-				} else {
-					return a - Math.abs(b);
-				}
-			} else {
-				if (b >=0) {
-					return Math.abs(a) - b;
-				} else {
-					return Math.abs(a) - Math.abs(b);
-				}
-			}
-		}
-
-	});
-}
-/* end */
-	
     /* Public Methods */
     /**
      * This method will sort the data in-place by choosing the pivot point as the center item

@@ -2,7 +2,7 @@ package tim.parallel;
 
 import java.util.*;
 import java.util.concurrent.Callable;
-import tim.QuickSort;
+
 
 /**
  * This class will handle the resolution and redistribution task for each thread/worker.
@@ -43,17 +43,11 @@ public class WorkerTask implements Callable<Boolean> {
             // get posClause
             posClause = posData.next();
             
-            if (posClause == null) continue; 
-            assert (posClause != null); /** This assertion is triggered - why? */
-            
             // loop through the negData for negClause
             for (i = 0; i < negData.length; i++) {
                 // get negClause
                 negClause = negData[i];
 
-                if (negClause == null) continue;
-                assert (negClause != null); /** This assertion is triggered - why? */ 
-                
                 // handle special clause (bad resolution)
                 if ((posClause.length == 1) && (negClause.length == 1)) {
                     return true;
@@ -83,17 +77,10 @@ public class WorkerTask implements Callable<Boolean> {
                 else {
                     // loop over posClause and negClause for resolutionLength (ignore the first item)
                     resolutionLength = 0;
-                    posIndex = 0; /***why 1?***/
-                    negIndex = 0; /***why 1?***/
+                    posIndex = 1;
+                    negIndex = 1;
                     isTrueClause = false;
-                    // debug
-                    System.out.format("posClause = %s -- negClause = %s\n",
-                            Arrays.toString(posClause), Arrays.toString(negClause));
-                    while ((posIndex < posClause.length) || (negIndex < negClause.length)) {
-                        // debug
-                        System.out.format("resolutionTmp = %s -- posIndex = %d -- negIndex = %d\n",
-                                Arrays.toString(resolutionTmp), posIndex, negIndex);
-
+                    while ((posIndex < posClause.length) &&  (negIndex < negClause.length)) {
                         // handle true clauses
                         if (posClause[posIndex] == -negClause[negIndex]) {
                             isTrueClause = true;
@@ -105,16 +92,28 @@ public class WorkerTask implements Callable<Boolean> {
                         negItem = (negClause[negIndex] < 0) ? -negClause[negIndex] : negClause[negIndex];
 
                         // add small items first
-                        if (posItem <= negItem) {
+                        if (posItem < negItem) {
                             resolutionTmp[resolutionLength++] = posClause[posIndex++];
                         }
                         else if (posItem > negItem) {
                             resolutionTmp[resolutionLength++] = negClause[negIndex++];
                         }
+                        else {
+                            resolutionTmp[resolutionLength++] = posClause[posIndex++];
+                            negIndex++;
+                        }
                     }
 
                     // don't add true clauses
                     if (!isTrueClause) {
+                        // add left over items
+                        for (j = posIndex; j < posClause.length; j++) {
+                            resolutionTmp[resolutionLength++] = posClause[j];
+                        }
+                        for (j = negIndex; j < negClause.length; j++) {
+                            resolutionTmp[resolutionLength++] = negClause[j];
+                        }
+
                         // create resolution
                         resolution = new int[resolutionLength];
                         for (j = 0; j < resolutionLength; j++) {
@@ -141,34 +140,17 @@ public class WorkerTask implements Callable<Boolean> {
      * @param clause given the clause (must be sorted)
      */
     private void addToBucket(int[] clause) {
-    	
-    	//QuickSort.intsort(clause); // You can turn if off if your pre-condition is correct 
-    	assert (Clauses.inOrder(clause));
-    	
-        // debug
-        System.out.format("Add to bucket = %s", Arrays.toString(clause));
-
         int key = (clause[0] < 0) ? -clause[0] : clause[0];
-        // you made a bug earlier
         Clauses.ClauseType clauseType = (clause[0] < 0) ? Clauses.ClauseType.NEGATIVE : Clauses.ClauseType.POSITIVE;
         
         // handle when key doesn't exist 
-        /* your way is not very efficient -- this is better
         Bucket b = data.get(key);
         if (b == null) {
-        	data.put(key, new Bucket(clause, clauseType));
-        } else {
-        	b.add(clause, clauseType);
-        }
-        */
-        
-        if (!data.containsKey(key)) {
             Bucket bucket = new Bucket();
             bucket.add(clause, clauseType);
             data.put(key, bucket);
-        }
-        else {
-            data.get(key).add(clause, clauseType);
+        } else {
+        	b.add(clause, clauseType);
         }
     }
 
@@ -177,10 +159,12 @@ public class WorkerTask implements Callable<Boolean> {
      * This method will redistribute the data to the right bucket using 'union'
      */
     private void redistributeData() {
-    	if (data.size() == 0) return;
+        // base case
+    	if (data.size() == 0)
+    	    return;
+
         // random the values in data
         List<Object> values = Arrays.asList((Object[]) data.values().toArray());
-        
         Collections.shuffle(values);
 
         // loop through values and union to the right bucket
