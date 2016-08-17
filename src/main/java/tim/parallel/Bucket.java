@@ -135,10 +135,6 @@ public class Bucket {
       * @param bucket given the bucket
      */
     public synchronized void union(Bucket bucket) {
-        // increase the sizes
-        posSize += bucket.getPosSize();
-        negSize += bucket.getNegSize();
-
         // get clause max sizes
         posClauseMaxSize = (posClauseMaxSize < bucket.getPosClauseMaxSize()) ?
                 bucket.getPosClauseMaxSize() : posClauseMaxSize;
@@ -150,18 +146,22 @@ public class Bucket {
         boolean isBucketEmpty = false;
         int[] lastItem;
         try {
-            while (isAddedAllowed) {
+            do {
                 lastItem = bucket.pop(Clauses.ClauseType.POSITIVE);
 
                 // only add if it doesn't exist duplicates
                 if (!isClauseExisted(lastItem)) {
                     isAddedAllowed = posCurrent.add(lastItem);
+
+                    // increase the size
+                    if (isAddedAllowed) {
+                        posSize++;
+                    }
                 }
-                else {
-                    // decrease the size
-                    posSize--;
-                }
-            }
+            } while (isAddedAllowed);
+
+            // add the last item back because the posCurrent is full
+            bucket.add(lastItem, Clauses.ClauseType.POSITIVE);
         }
         catch (IndexOutOfBoundsException e) {
             isBucketEmpty = true;
@@ -170,6 +170,7 @@ public class Bucket {
         if (!isBucketEmpty) {
             // add the posClauses and update posCurrent
             posClauses.addAll(bucket.getPosClauses());
+            posSize += bucket.getPosSize();
             posCurrent = bucket.getPosCurrent();
         }
 
@@ -177,18 +178,21 @@ public class Bucket {
         isAddedAllowed = true;
         isBucketEmpty = false;
         try {
-            while (isAddedAllowed) {
+            do {
                 lastItem = bucket.pop(Clauses.ClauseType.NEGATIVE);
-
                 // only add if it doesn't exist duplicates
                 if (!isClauseExisted(lastItem)) {
                     isAddedAllowed = negCurrent.add(lastItem);
+
+                    // increase the size
+                    if (isAddedAllowed) {
+                        negSize++;
+                    }
                 }
-                else {
-                    // decrease the size
-                    negSize--;
-                }
-            }
+            } while (isAddedAllowed);
+
+            // add the last item back because the posCurrent is full
+            bucket.add(lastItem, Clauses.ClauseType.NEGATIVE);
         }
         catch (IndexOutOfBoundsException e) {
             isBucketEmpty = true;
@@ -197,6 +201,7 @@ public class Bucket {
         if (!isBucketEmpty) {
             // add the negClauses and update negCurrent
             negClauses.addAll(bucket.getNegClauses());
+            negSize += bucket.getNegSize();
             negCurrent = bucket.getNegCurrent();
         }
     }
