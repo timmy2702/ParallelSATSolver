@@ -1,9 +1,6 @@
 package tim.parallel;
 
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 
 /**
@@ -12,6 +9,7 @@ import java.util.List;
 public class Bucket {
 
     /* Declare Variables */
+    private Map<Integer,List<int[]>> clauseCodes;
     private List<Clauses> posClauses;
     private List<Clauses> negClauses;
     private Clauses posCurrent;
@@ -25,6 +23,7 @@ public class Bucket {
 
     /* Class Constructors */
     public Bucket() {
+        clauseCodes = new HashMap<>();
         posClauses = new LinkedList<>();
         negClauses = new LinkedList<>();
         posCurrent = new Clauses();
@@ -85,6 +84,12 @@ public class Bucket {
      * @param clause given an array of literals for this clause
      */
     public void add(int[] clause, Clauses.ClauseType type) {
+        // don't handle if clause existed in the bucket
+        if (isClauseExisted(clause)) {
+            return;
+        }
+
+        // add the clause into the bucket
         switch (type) {
             case POSITIVE:
                 // handle when add the clause to current clauses unsuccessfully
@@ -141,17 +146,22 @@ public class Bucket {
                 bucket.getNegClauseMaxSize() : negClauseMaxSize;
 
         // fill out the empty items for posCurrent
-        boolean isAddedAllowed;
+        boolean isAddedAllowed = true;
         boolean isBucketEmpty = false;
         int[] lastItem;
         try {
-            do {
+            while (isAddedAllowed) {
                 lastItem = bucket.pop(Clauses.ClauseType.POSITIVE);
-                isAddedAllowed = posCurrent.add(lastItem);
-            } while (isAddedAllowed);
 
-            // add the last item back because the posCurrent is full
-            bucket.add(lastItem, Clauses.ClauseType.POSITIVE);
+                // only add if it doesn't exist duplicates
+                if (!isClauseExisted(lastItem)) {
+                    isAddedAllowed = posCurrent.add(lastItem);
+                }
+                else {
+                    // decrease the size
+                    posSize--;
+                }
+            }
         }
         catch (IndexOutOfBoundsException e) {
             isBucketEmpty = true;
@@ -164,15 +174,21 @@ public class Bucket {
         }
 
         // fill out the empty items for negCurrent
+        isAddedAllowed = true;
         isBucketEmpty = false;
         try {
-            do {
+            while (isAddedAllowed) {
                 lastItem = bucket.pop(Clauses.ClauseType.NEGATIVE);
-                isAddedAllowed = negCurrent.add(lastItem);
-            } while (isAddedAllowed);
 
-            // add the last item back because the posCurrent is full
-            bucket.add(lastItem, Clauses.ClauseType.NEGATIVE);
+                // only add if it doesn't exist duplicates
+                if (!isClauseExisted(lastItem)) {
+                    isAddedAllowed = negCurrent.add(lastItem);
+                }
+                else {
+                    // decrease the size
+                    negSize--;
+                }
+            }
         }
         catch (IndexOutOfBoundsException e) {
             isBucketEmpty = true;
@@ -305,6 +321,61 @@ public class Bucket {
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+
+    /* Private Methods */
+    /**
+     * This method will find whether the given clause is already existed in the bucket or not
+     * @param clause given the clause
+     * @return is duplicate exists
+     */
+    private boolean isClauseExisted(int[] clause) {
+        // create a hash code for this clause
+        int code = 0;
+        for (int literal : clause) {
+            code += literal * 3 + (literal - 1) * 5 + 1;
+        }
+
+        // put the code to clauseCodes and check for duplicates
+        List<int[]> codes = clauseCodes.get(code);
+        if (codes == null) {
+            codes = new ArrayList<>();
+            codes.add(clause);
+            clauseCodes.put(code,codes);
+        }
+        else {
+            // check for duplicates
+            int i;
+            boolean isBreak = false;
+            for (int[] item : codes) {
+                // compare item and clause assuming in sorted order
+                if (item.length == clause.length) {
+                    isBreak = false;
+                    for (i = 0; i < clause.length; i++) {
+                        if (clause[i] != item[i]) {
+                            isBreak = true;
+                            break;
+                        }
+                    }
+
+                    // break out of the loop if found duplicates
+                    if (!isBreak) {
+                        break;
+                    }
+                }
+            }
+
+            // handle duplicates found
+            if (!isBreak) {
+                return true;
+            }
+            else {
+                codes.add(clause);
+            }
+        }
+
+        return false;
     }
 
 

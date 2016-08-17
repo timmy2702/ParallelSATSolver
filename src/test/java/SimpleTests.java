@@ -1,6 +1,8 @@
 import org.junit.Assert;
 import org.junit.Test;
 import tim.QuickSort;
+import tim.parallel.Bucket;
+import tim.parallel.Clauses;
 
 
 /**
