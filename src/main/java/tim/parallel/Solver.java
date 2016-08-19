@@ -56,7 +56,7 @@ public class Solver {
         // create a thread pool
         int cores = Runtime.getRuntime().availableProcessors();
         logger.warn(String.format("Available Cores = %d", cores));
-        ExecutorService threadPool = Executors.newFixedThreadPool(cores);
+        ExecutorService threadPool = Executors.newFixedThreadPool(1);
         CompletionService<Boolean> completionService = new ExecutorCompletionService<>(threadPool);
 
         // print original buckets

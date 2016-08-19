@@ -36,7 +36,7 @@ public class WorkerTask implements Callable<Boolean> {
         int[] resolutionTmp = new int[maxResolutionSize];
         int[] posClause, negClause, resolution;
         int i, j, posIndex, negIndex, posItem, negItem, resolutionLength;
-        boolean isTrueClause;
+        boolean isTrueClause, isSpecialCase;
 
         // do resolution on this bucket
         while (posData.hasNext()) {
@@ -120,6 +120,10 @@ public class WorkerTask implements Callable<Boolean> {
                             resolution[j] = resolutionTmp[j];
                         }
 
+//                        // DEBUG ONLY
+//                        System.out.format("posClause = %s, negClause = %s, resolution = %s\n",
+//                                Arrays.toString(posClause), Arrays.toString(negClause), Arrays.toString(resolution));
+
                         // add resolution to bucket
                         addToBucket(resolution);
                     }
@@ -171,7 +175,9 @@ public class WorkerTask implements Callable<Boolean> {
         Bucket bucket;
         for (Object obj : values) {
             bucket = (Bucket) obj;
+//            System.out.format("Bucket before union = %s\n", buckets[bucket.getKey() - 1]);
             buckets[bucket.getKey() - 1].union(bucket);
+//            System.out.format("Bucket after union = %s\n", buckets[bucket.getKey() - 1]);
         }
     }
 }
