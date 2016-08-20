@@ -54,7 +54,7 @@ public class Solver {
         logger.warn("Init Buckets");
         Timer timerInitBuckets = new Timer("Init Buckets");
         initBuckets();
-        timerInitBuckets.result();
+        logger.warn(timerInitBuckets.result());
 
         // create a thread pool
         int cores = Runtime.getRuntime().availableProcessors();
@@ -77,7 +77,7 @@ public class Solver {
             bucket = buckets[i];
 
             // print the bucket
-            logger.warn(String.format("Starting Bucket %d -- Iteration %d\n%s", i + 1, i + 1, bucket));
+            logger.warn(String.format("Starting Bucket %d -- Iteration %d\n\t%s", i + 1, i + 1, bucket));
 
             // get iterator and necessary data
             iterator = bucket.getIterator(bucket.getNegSize(), Clauses.ClauseType.NEGATIVE);
@@ -87,6 +87,8 @@ public class Solver {
             maxResolutionSize = bucket.getPosClauseMaxSize() + bucket.getNegClauseMaxSize();
 
             // init the negData for this bucket
+            logger.warn(String.format("Creating thread data -- Iteration %d", i + 1));
+            Timer timerThreadData = new Timer("Thread Data");
             for (j = 0; j < negData.length; j++) {
                 negData[j] = (j < negMod) ? (new int[negCutOff + 1][]) : (new int[negCutOff][]);
             }
@@ -97,6 +99,7 @@ public class Solver {
                 negData[negCount % cores][negCount / cores] = iterator.next();
                 negCount++;
             }
+            logger.warn(timerThreadData.result());
 
             // submit tasks to thread pool
             logger.warn(String.format("Submitting %d tasks (task size = %d) -- Iteration %d",
@@ -109,6 +112,7 @@ public class Solver {
 
             // getting the results
             logger.warn(String.format("Waiting for %d results -- Iteration %d", cores, i + 1));
+            Timer timerWaitingResult = new Timer("Waiting Result");
             tasksDone = 0;
             while (tasksDone < cores) {
                 // wait until a result is collected
@@ -119,6 +123,7 @@ public class Solver {
                 if (isUnsatisfiable) {
                     logger.error("UNSATISFIABLE");
                     threadPool.shutdownNow();
+                    logger.warn(timerWaitingResult.result());
                     return;
                 }
                 else {
@@ -126,6 +131,7 @@ public class Solver {
                     logger.warn(String.format("%d tasks done", tasksDone));
                 }
             }
+            logger.warn(timerWaitingResult.result());
 
             // deallocate the bucket
             buckets[i] = null;
@@ -313,6 +319,6 @@ public class Solver {
         (new Solver(file, logLevel)).run();
 
         // get the time
-        timerTotalProgram.result();
+        System.out.println(timerTotalProgram.result());
     }
 }
