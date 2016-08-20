@@ -23,8 +23,10 @@ import java.util.concurrent.*;
 public class Solver {
 
     /* Declare Variables */
+    public static Level debugLevel;
+    public static Logger logger;
+
     private String file;
-    private Logger logger;
     private Bucket[] buckets;
 
 
@@ -33,6 +35,7 @@ public class Solver {
         this.file = file;
 
         // set level for the logger & turn off status logger warnings
+        debugLevel = level;
         logger = LogManager.getLogger(Solver.class.getName());
         LoggerContext context = (LoggerContext) LogManager.getContext(false);
         Configuration config = context.getConfiguration();
@@ -74,8 +77,7 @@ public class Solver {
             bucket = buckets[i];
 
             // print the bucket
-            logger.warn(String.format("Starting Bucket %d -- Iteration %d", i + 1, i + 1));
-            logger.info(String.format("Bucket %d\n%s", i + 1, bucket));
+            logger.warn(String.format("Starting Bucket %d -- Iteration %d\n%s", i + 1, i + 1, bucket));
 
             // get iterator and necessary data
             iterator = bucket.getIterator(bucket.getNegSize(), Clauses.ClauseType.NEGATIVE);
@@ -155,7 +157,7 @@ public class Solver {
             // ignore all the lines starting with c
             if (!line.startsWith("c")) {
                 // split the line
-                String[] split = line.split(" ");
+                String[] split = line.split("\\s+");
 
                 // handle line with 'p' (assume all the files have 'p' for problem)
                 if (split[0].equals("p")) {
@@ -199,7 +201,8 @@ public class Solver {
 
                     // sort the clause
                     QuickSort.sort(clause);
-                    assert (Clauses.inOrder(clause));
+                    assert (Clauses.inOrder(clause)) : String.format("Clauses must be in order, but clauses = %s",
+                            Arrays.toString(clause));
 
                     // loop through the sorted clause to check duplicates
                     duplicateCount = 0;

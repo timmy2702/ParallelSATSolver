@@ -1,5 +1,7 @@
 package tim.parallel;
 
+import org.apache.logging.log4j.Level;
+
 import java.util.*;
 
 
@@ -56,22 +58,24 @@ public class Bucket {
         result.append(negClauseMaxSize);
         result.append("\n");
 
-        // loop and add posClauses
-        for (int i = 0; i < posClauses.size(); i++) {
-            result.append("posClauses ");
-            result.append(i + 1);
-            result.append("\n");
-            result.append(posClauses.get(i));
-            result.append("\n");
-        }
+        if (Solver.debugLevel == Level.INFO) {
+            // loop and add posClauses
+            for (int i = 0; i < posClauses.size(); i++) {
+                result.append("posClauses ");
+                result.append(i + 1);
+                result.append("\n");
+                result.append(posClauses.get(i));
+                result.append("\n");
+            }
 
-        // loop and add negClauses
-        for (int i = 0; i < negClauses.size(); i++) {
-            result.append("negClauses ");
-            result.append(i + 1);
-            result.append("\n");
-            result.append(negClauses.get(i));
-            result.append("\n");
+            // loop and add negClauses
+            for (int i = 0; i < negClauses.size(); i++) {
+                result.append("negClauses ");
+                result.append(i + 1);
+                result.append("\n");
+                result.append(negClauses.get(i));
+                result.append("\n");
+            }
         }
 
         return result.toString();
@@ -84,8 +88,11 @@ public class Bucket {
      * @param clause given an array of literals for this clause
      */
     public void add(int[] clause, Clauses.ClauseType type) {
+        // don't add null clause
+        assert (clause != null) : "Adding null clause";
+
         // don't handle if clause existed in the bucket
-        if (isClauseExisted(clause)) {
+        if (isClauseExisted(clause, true)) {
             return;
         }
 
@@ -135,6 +142,12 @@ public class Bucket {
       * @param bucket given the bucket
      */
     public synchronized void union(Bucket bucket) {
+        // get the total size (slow code)
+        int total = 0;
+        if (Solver.debugLevel == Level.INFO) {
+            total = posSize + negSize + bucket.getPosSize() + bucket.getNegSize() - getAmountOfDuplicates(this, bucket);
+        }
+
         // get clause max sizes
         posClauseMaxSize = (posClauseMaxSize < bucket.getPosClauseMaxSize()) ?
                 bucket.getPosClauseMaxSize() : posClauseMaxSize;
@@ -144,7 +157,7 @@ public class Bucket {
         // fill out the empty items for posCurrent
         boolean isAddedAllowed = true;
         boolean isBucketEmpty = false;
-        int[] lastItem;
+        int[] lastItem = null;
         try {
             do {
                 lastItem = bucket.pop(Clauses.ClauseType.POSITIVE);
@@ -160,8 +173,6 @@ public class Bucket {
                 }
             } while (isAddedAllowed);
 
-            // add the last item back because the posCurrent is full
-            bucket.add(lastItem, Clauses.ClauseType.POSITIVE);
         }
         catch (IndexOutOfBoundsException e) {
             isBucketEmpty = true;
@@ -172,6 +183,9 @@ public class Bucket {
             posClauses.addAll(bucket.getPosClauses());
             posSize += bucket.getPosSize();
             posCurrent = bucket.getPosCurrent();
+
+            // add the last item back because the posCurrent is full
+            this.add(lastItem, Clauses.ClauseType.POSITIVE);
         }
 
         // fill out the empty items for negCurrent
@@ -190,9 +204,6 @@ public class Bucket {
                     }
                 }
             } while (isAddedAllowed);
-
-            // add the last item back because the posCurrent is full
-            bucket.add(lastItem, Clauses.ClauseType.NEGATIVE);
         }
         catch (IndexOutOfBoundsException e) {
             isBucketEmpty = true;
@@ -203,6 +214,14 @@ public class Bucket {
             negClauses.addAll(bucket.getNegClauses());
             negSize += bucket.getNegSize();
             negCurrent = bucket.getNegCurrent();
+            // add the last item back
+            this.add(lastItem, Clauses.ClauseType.NEGATIVE);
+        }
+
+        // check the total
+        if (Solver.debugLevel == Level.INFO) {
+            assert (total == (posSize + negSize)) :
+                    String.format("Total size after union is wrong -- expected %d -- actual %d\n%s", total, posSize + negSize, this);
         }
     }
 
@@ -329,13 +348,58 @@ public class Bucket {
     }
 
 
+    /**
+     * This method will get the amount of duplicates between two buckets (mainly for debugging)
+     * @param bucket1 given 1st bucket
+     * @param bucket2 given 2nd bucket
+     * @return number of duplicates
+     */
+    public static int getAmountOfDuplicates(Bucket bucket1, Bucket bucket2) {
+        // init variables
+        int result = 0;
+        int[] clause;
+        Iterator<int[]> posIterator = bucket2.getIterator(bucket2.getPosSize(), Clauses.ClauseType.POSITIVE);
+        Iterator<int[]> negIterator = bucket2.getIterator(bucket2.getNegSize(), Clauses.ClauseType.NEGATIVE);
+
+        // calculate the number of duplicates
+        while (posIterator.hasNext()) {
+            clause = posIterator.next();
+            if (bucket1.isClauseExisted(clause)) {
+                System.out.format("Duplicate = %s\n\n", Arrays.toString(clause));
+                result++;
+            }
+        }
+
+        while (negIterator.hasNext()) {
+            clause = negIterator.next();
+            if (bucket1.isClauseExisted(clause)) {
+                System.out.format("Duplicate = %s\n\n", Arrays.toString(clause));
+                result++;
+            }
+        }
+
+        return result;
+    }
+
+
+    /**
+     * This method will check whether this clause is existed or not (without adding)
+     * @param clause given the clause
+     * @return check whether it is existed
+     */
+    public boolean isClauseExisted(int[] clause) {
+        return isClauseExisted(clause, false);
+    }
+
+
     /* Private Methods */
     /**
      * This method will find whether the given clause is already existed in the bucket or not
      * @param clause given the clause
+     * @param isAddingCode whether code should be added to the system or not
      * @return is duplicate exists
      */
-    private boolean isClauseExisted(int[] clause) {
+    private boolean isClauseExisted(int[] clause, boolean isAddingCode) {
         // create a hash code for this clause
         int code = 0;
         for (int literal : clause) {
@@ -345,9 +409,12 @@ public class Bucket {
         // put the code to clauseCodes and check for duplicates
         List<int[]> codes = clauseCodes.get(code);
         if (codes == null) {
-            codes = new ArrayList<>();
-            codes.add(clause);
-            clauseCodes.put(code,codes);
+            // add the code to the system
+            if (isAddingCode) {
+                codes = new ArrayList<>();
+                codes.add(clause);
+                clauseCodes.put(code,codes);
+            }
         }
         else {
             // check for duplicates
@@ -369,6 +436,9 @@ public class Bucket {
                         break;
                     }
                 }
+                else {
+                    isBreak = true;
+                }
             }
 
             // handle duplicates found
@@ -376,11 +446,28 @@ public class Bucket {
                 return true;
             }
             else {
-                codes.add(clause);
+                // add the code to the system
+                if (isAddingCode) {
+                    codes.add(clause);
+                }
             }
         }
 
         return false;
+    }
+
+
+    /**
+     * This method is used for debugging/printing the clauseCodes object
+     */
+    private void printClauseCodes() {
+        System.out.println("Printing clauseCodes");
+        for (Map.Entry<Integer,List<int[]>> entry : clauseCodes.entrySet()) {
+            System.out.format("Code = %d\n", entry.getKey());
+            for (int[] clause : entry.getValue()) {
+                System.out.println(Arrays.toString(clause));
+            }
+        }
     }
 
 
@@ -426,7 +513,7 @@ public class Bucket {
 
 
     public int getKey() {
-    	assert (key >= 0);
+    	assert (key >= 0) : String.format("key must be positive, but key = %d", key);
         return key;
     }
 }
