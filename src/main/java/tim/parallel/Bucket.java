@@ -56,9 +56,11 @@ public class Bucket {
         result.append(posClauseMaxSize);
         result.append(", negClauseMaxSize = ");
         result.append(negClauseMaxSize);
-        result.append("\n");
 
         if (Solver.debugLevel == Level.INFO) {
+            // add new line
+            result.append("\n");
+
             // loop and add posClauses
             for (int i = 0; i < posClauses.size(); i++) {
                 result.append("posClauses ");
@@ -142,86 +144,22 @@ public class Bucket {
       * @param bucket given the bucket
      */
     public synchronized void union(Bucket bucket) {
-        // get the total size (slow code)
-        int total = 0;
-        if (Solver.debugLevel == Level.INFO) {
-            total = posSize + negSize + bucket.getPosSize() + bucket.getNegSize() - getAmountOfDuplicates(this, bucket);
-        }
-
         // get clause max sizes
         posClauseMaxSize = (posClauseMaxSize < bucket.getPosClauseMaxSize()) ?
                 bucket.getPosClauseMaxSize() : posClauseMaxSize;
         negClauseMaxSize = (negClauseMaxSize < bucket.getNegClauseMaxSize()) ?
                 bucket.getNegClauseMaxSize() : negClauseMaxSize;
 
-        // fill out the empty items for posCurrent
-        boolean isAddedAllowed = true;
-        boolean isBucketEmpty = false;
-        int[] lastItem = null;
-        try {
-            do {
-                lastItem = bucket.pop(Clauses.ClauseType.POSITIVE);
+        // loop through the other bucket and add
+        Iterator<int[]> posIterator = bucket.getIterator(bucket.getPosSize(), Clauses.ClauseType.POSITIVE);
+        Iterator<int[]> negIterator = bucket.getIterator(bucket.getNegSize(), Clauses.ClauseType.NEGATIVE);
 
-                // only add if it doesn't exist duplicates
-                if (!isClauseExisted(lastItem)) {
-                    isAddedAllowed = posCurrent.add(lastItem);
-
-                    // increase the size
-                    if (isAddedAllowed) {
-                        posSize++;
-                    }
-                }
-            } while (isAddedAllowed);
-
-        }
-        catch (IndexOutOfBoundsException e) {
-            isBucketEmpty = true;
+        while (posIterator.hasNext()) {
+            this.add(posIterator.next(), Clauses.ClauseType.POSITIVE);
         }
 
-        if (!isBucketEmpty) {
-            // add the posClauses and update posCurrent
-            posClauses.addAll(bucket.getPosClauses());
-            posSize += bucket.getPosSize();
-            posCurrent = bucket.getPosCurrent();
-
-            // add the last item back because the posCurrent is full
-            this.add(lastItem, Clauses.ClauseType.POSITIVE);
-        }
-
-        // fill out the empty items for negCurrent
-        isAddedAllowed = true;
-        isBucketEmpty = false;
-        try {
-            do {
-                lastItem = bucket.pop(Clauses.ClauseType.NEGATIVE);
-                // only add if it doesn't exist duplicates
-                if (!isClauseExisted(lastItem)) {
-                    isAddedAllowed = negCurrent.add(lastItem);
-
-                    // increase the size
-                    if (isAddedAllowed) {
-                        negSize++;
-                    }
-                }
-            } while (isAddedAllowed);
-        }
-        catch (IndexOutOfBoundsException e) {
-            isBucketEmpty = true;
-        }
-
-        if (!isBucketEmpty) {
-            // add the negClauses and update negCurrent
-            negClauses.addAll(bucket.getNegClauses());
-            negSize += bucket.getNegSize();
-            negCurrent = bucket.getNegCurrent();
-            // add the last item back
-            this.add(lastItem, Clauses.ClauseType.NEGATIVE);
-        }
-
-        // check the total
-        if (Solver.debugLevel == Level.INFO) {
-            assert (total == (posSize + negSize)) :
-                    String.format("Total size after union is wrong -- expected %d -- actual %d\n%s", total, posSize + negSize, this);
+        while (negIterator.hasNext()) {
+            this.add(negIterator.next(), Clauses.ClauseType.NEGATIVE);
         }
     }
 
@@ -236,7 +174,7 @@ public class Bucket {
             case POSITIVE:
                 // don't handle when there is nothing
                 if (posSize == 0) {
-                    throw new IndexOutOfBoundsException();
+                    return null;
                 }
 
                 // try to get the last item of the current clause
@@ -257,7 +195,7 @@ public class Bucket {
             case NEGATIVE:
                 // don't handle when there is nothing
                 if (negSize == 0) {
-                    throw new IndexOutOfBoundsException();
+                    return null;
                 }
 
                 // try to get the last item of the current clause
@@ -298,6 +236,7 @@ public class Bucket {
 
             /* Declaring Variables */
             private int index = 0;
+            private int currentClauseIndex = 0;
             private int clausesIndex = -1;
             private Clauses current;
 
@@ -331,11 +270,15 @@ public class Bucket {
                         }
                         break;
                 }
-                int[] result = current.get(index % Clauses.SIZE_THRESHOLD);
+                int[] result = current.get(currentClauseIndex);
                 clausesIndex = newIndex;
 
                 // increase the index and return
                 index++;
+                currentClauseIndex++;
+                if (currentClauseIndex == Clauses.SIZE_THRESHOLD) {
+                    currentClauseIndex = 0;
+                }
                 return result;
             }
 
@@ -365,7 +308,6 @@ public class Bucket {
         while (posIterator.hasNext()) {
             clause = posIterator.next();
             if (bucket1.isClauseExisted(clause)) {
-                System.out.format("Duplicate = %s\n\n", Arrays.toString(clause));
                 result++;
             }
         }
@@ -373,7 +315,6 @@ public class Bucket {
         while (negIterator.hasNext()) {
             clause = negIterator.next();
             if (bucket1.isClauseExisted(clause)) {
-                System.out.format("Duplicate = %s\n\n", Arrays.toString(clause));
                 result++;
             }
         }

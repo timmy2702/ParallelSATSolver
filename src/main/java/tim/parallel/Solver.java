@@ -59,7 +59,7 @@ public class Solver {
         // create a thread pool
         int cores = Runtime.getRuntime().availableProcessors();
         logger.warn(String.format("Available Cores = %d", cores));
-        ExecutorService threadPool = Executors.newFixedThreadPool(1);
+        ExecutorService threadPool = Executors.newFixedThreadPool(cores);
         CompletionService<Boolean> completionService = new ExecutorCompletionService<>(threadPool);
 
         // print original buckets
@@ -72,7 +72,7 @@ public class Solver {
         Future<Boolean> result;
         Boolean isUnsatisfiable;
         int[][][] negData = new int[cores][][];
-        int i, j, negCutOff, negCount, negMod, maxResolutionSize, receivedResults;
+        int i, j, negCutOff, negCount, negMod, maxResolutionSize, tasksDone;
         for (i = 0; i < buckets.length; i++) {
             bucket = buckets[i];
 
@@ -98,12 +98,9 @@ public class Solver {
                 negCount++;
             }
 
-            // print out negData
-            logger.info(String.format("Printing negData -- negCutOff = %d -- negMod = %d", negCutOff, negMod));
-            printArray(negData);
-
             // submit tasks to thread pool
-            logger.warn(String.format("Submitting tasks -- Iteration %d", i + 1));
+            logger.warn(String.format("Submitting %d tasks (task size = %d) -- Iteration %d",
+                    cores, negCutOff + 1, i + 1));
             for (j = 0; j < cores; j++) {
                 iterator = bucket.getIterator(bucket.getPosSize(), Clauses.ClauseType.POSITIVE);
                 worker = new WorkerTask(maxResolutionSize, negData[j], iterator, buckets);
@@ -111,9 +108,9 @@ public class Solver {
             }
 
             // getting the results
-            logger.warn(String.format("Waiting for results -- Iteration %d", i + 1));
-            receivedResults = 0;
-            while (receivedResults < cores) {
+            logger.warn(String.format("Waiting for %d results -- Iteration %d", cores, i + 1));
+            tasksDone = 0;
+            while (tasksDone < cores) {
                 // wait until a result is collected
                 result = completionService.take();
 
@@ -125,8 +122,8 @@ public class Solver {
                     return;
                 }
                 else {
-                    receivedResults++;
-                    logger.info(String.format("receivedResults = %d", receivedResults));
+                    tasksDone++;
+                    logger.warn(String.format("%d tasks done", tasksDone));
                 }
             }
 
